@@ -20,13 +20,7 @@ const handler = createMcpHandler(
         },
       },
     },
-  },
-  {
-    redisUrl: process.env.REDIS_URL,
-    basePath: "",
-    verboseLogs: true,
-    maxDuration: 60,
   }
 );
 
-export { handler as GET, handler as POST, handler as DELETE };
+export { handler as DELETE, handler as GET, handler as POST };
