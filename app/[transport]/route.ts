@@ -426,11 +426,24 @@ const handler = createMcpHandler(
       },
       async ({ symbol }) => {
         try {
-          const quote = await yahooFinance.quote(symbol);
-          const recommendations = (quote as any).recommendationKey || "N/A";
+          const recommendations = await yahooFinance.recommendationsBySymbol(
+            symbol
+          );
 
           let output = `Recommendations for ${symbol}:\n\n`;
-          output += `Current Recommendation: ${recommendations}\n`;
+
+          if (
+            recommendations.recommendedSymbols &&
+            recommendations.recommendedSymbols.length > 0
+          ) {
+            output += "Recommended Similar Stocks:\n\n";
+            recommendations.recommendedSymbols.forEach((rec: any) => {
+              output += `Symbol: ${rec.symbol}\n`;
+              output += `Score: ${rec.score}\n\n`;
+            });
+          } else {
+            output += "No recommendations available.\n";
+          }
 
           return {
             content: [{ type: "text", text: output }],
@@ -459,23 +472,72 @@ const handler = createMcpHandler(
           .number()
           .default(10)
           .describe("Number of trending items to return"),
+        region: z
+          .enum([
+            "US",
+            "GB",
+            "AU",
+            "CA",
+            "IN",
+            "FR",
+            "DE",
+            "HK",
+            "IT",
+            "ES",
+            "BR",
+            "MX",
+            "SG",
+            "JP",
+          ])
+          .default("US")
+          .describe("Region to get trending symbols for"),
+        lang: z
+          .enum([
+            "en-US",
+            "en-GB",
+            "en-AU",
+            "en-CA",
+            "en-IN",
+            "fr-FR",
+            "de-DE",
+            "zh-HK",
+            "it-IT",
+            "es-ES",
+            "pt-BR",
+            "es-MX",
+            "en-SG",
+            "ja-JP",
+          ])
+          .default("en-US")
+          .describe("Language for the response"),
       },
-      async ({ count }) => {
+      async ({ count, region, lang }) => {
         try {
-          const indices = await Promise.all([
-            yahooFinance.quote("^GSPC"), // S&P 500
-            yahooFinance.quote("^DJI"), // Dow Jones
-            yahooFinance.quote("^IXIC"), // NASDAQ
-            yahooFinance.quote("^RUT"), // Russell 2000
-          ]);
-
-          let output = "Market Indices:\n\n";
-          indices.forEach((quote: any) => {
-            const name = quote.shortname || quote.longname || quote.symbol;
-            output += `${name} (${quote.symbol}):\n`;
-            output += `  Price: $${quote.regularMarketPrice}\n`;
-            output += `  Change: ${quote.regularMarketChangePercent}%\n\n`;
+          const trending = await yahooFinance.trendingSymbols(region, {
+            count,
+            lang,
           });
+
+          let output = `Trending Stocks (${region}):\n\n`;
+
+          if (trending.quotes && trending.quotes.length > 0) {
+            trending.quotes.forEach((item: any, index: number) => {
+              output += `${index + 1}. ${item.shortname || item.symbol} (${
+                item.symbol
+              })\n`;
+              output += `   Price: $${item.regularMarketPrice}\n`;
+              output += `   Change: ${item.regularMarketChangePercent}%\n`;
+              if (item.marketCap)
+                output += `   Market Cap: $${(item.marketCap / 1e9).toFixed(
+                  2
+                )}B\n`;
+              if (item.volume)
+                output += `   Volume: ${item.volume.toLocaleString()}\n`;
+              if (item.averageVolume)
+                output += `   Avg Volume: ${item.averageVolume.toLocaleString()}\n`;
+              output += "\n";
+            });
+          }
 
           return {
             content: [{ type: "text", text: output }],
@@ -698,13 +760,26 @@ const handler = createMcpHandler(
     // Screener Tool
     server.tool(
       "yahoo_screener",
-      "Screen stocks based on various criteria using Yahoo Finance",
+      "Screen stocks based on predefined criteria using Yahoo Finance",
       {
         criteria: z
-          .string()
-          .describe(
-            "Screening criteria (e.g., 'market_cap>1000000000,pe_ratio<20')"
-          ),
+          .enum([
+            "day_gainers",
+            "day_losers",
+            "most_actives",
+            "most_shorted_stocks",
+            "undervalued_large_caps",
+            "aggressive_small_caps",
+            "conservative_foreign_funds",
+            "growth_technology_stocks",
+            "high_yield_bond",
+            "portfolio_anchors",
+            "solid_large_growth_funds",
+            "solid_midcap_growth_funds",
+            "top_mutual_funds",
+            "undervalued_growth_stocks",
+          ])
+          .describe("Screening criteria (e.g., 'day_gainers', 'most_actives')"),
         count: z
           .number()
           .default(50)
@@ -713,16 +788,11 @@ const handler = createMcpHandler(
       async ({ criteria, count }) => {
         try {
           const screen = await yahooFinance.screener({
-            scrIds: criteria as
-              | "day_gainers"
-              | "day_losers"
-              | "most_actives"
-              | "most_shorted_stocks"
-              | "undervalued_large_caps",
+            scrIds: criteria,
             count,
           });
 
-          let output = `Screener results for criteria: ${criteria}\n\n`;
+          let output = `Screener results for ${criteria}:\n\n`;
 
           if (screen.quotes && screen.quotes.length > 0) {
             screen.quotes.forEach((quote: any, index) => {
@@ -765,47 +835,47 @@ const handler = createMcpHandler(
       tools: {
         yahoo_stock_quote: {
           description:
-            "Get current stock quote information from Yahoo Finance. Returns detailed information about a stock including current price, day range, 52-week range, market cap, volume, P/E ratio, etc.",
+            "Get current stock quote information from Yahoo Finance. Returns detailed information about a stock including current price, day range, 52-week range, market cap, volume, P/E ratio, etc. Example: Get quote for AAPL to see current price, market cap, and other key metrics.",
         },
         yahoo_market_data: {
           description:
-            "Get current market data from Yahoo Finance. Returns information about major market indices (like S&P 500, NASDAQ, Dow Jones).",
+            "Get current market data from Yahoo Finance. Returns information about major market indices (like S&P 500, NASDAQ, Dow Jones). Example: Get market data for ^GSPC,^DJI to see S&P 500 and Dow Jones performance.",
         },
         yahoo_stock_history: {
           description:
-            "Get historical stock data from Yahoo Finance. Returns price and volume data for a specified time period.",
+            "Get historical stock data from Yahoo Finance. Returns price and volume data for a specified time period. Example: Get 1 month of daily data for AAPL with period='1mo' and interval='1d'.",
         },
         yahoo_search: {
           description:
-            "Search for stocks, ETFs, mutual funds, and other securities on Yahoo Finance. Returns matching quotes and news articles.",
+            "Search for stocks, ETFs, mutual funds, and other securities on Yahoo Finance. Returns matching quotes and news articles. Example: Search for 'Apple' with quotesCount=5 to get top 5 matching securities.",
         },
         yahoo_options: {
           description:
-            "Get options data for a stock from Yahoo Finance. Returns available expiration dates, strike prices, and options contracts.",
+            "Get options data for a stock from Yahoo Finance. Returns available expiration dates, strike prices, and options contracts. Example: Get options for AAPL with optional expiration='2024-04-19' for specific date.",
         },
         yahoo_recommendations: {
           description:
-            "Get stock recommendations and analysis from Yahoo Finance. Returns analyst recommendations and price targets.",
+            "Get stock recommendations and analysis from Yahoo Finance. Returns recommended similar stocks with their scores. Example: Get recommendations for AAPL to find similar stocks to invest in.",
         },
         yahoo_trending: {
           description:
-            "Get trending stocks and market movers from Yahoo Finance. Returns most active and trending securities.",
+            "Get trending stocks and market movers from Yahoo Finance. Returns trending stocks with price, change, volume, and market cap. Example: Get trending stocks for US market with count=10, region='US', lang='en-US'.",
         },
         yahoo_autoc: {
           description:
-            "Get autocomplete suggestions from Yahoo Finance. Returns matching symbols and securities as you type.",
+            "Get autocomplete suggestions from Yahoo Finance. Returns matching symbols and securities as you type. Example: Get suggestions for 'Appl' to find Apple-related securities.",
         },
         yahoo_insights: {
           description:
-            "Get market insights and analysis from Yahoo Finance. Returns market news, analysis, and insights for a stock.",
+            "Get market insights and analysis from Yahoo Finance. Returns market news, analysis, and insights for a stock. Example: Get insights for AAPL to see market analysis and key statistics.",
         },
         yahoo_chart: {
           description:
-            "Get chart data for a stock from Yahoo Finance. Returns historical price and volume data in a chart format.",
+            "Get chart data for a stock from Yahoo Finance. Returns historical price and volume data in a chart format. Example: Get 1 month of daily chart data for AAPL with period='1mo' and interval='1d'.",
         },
         yahoo_screener: {
           description:
-            "Screen stocks based on various criteria using Yahoo Finance. Returns stocks matching your screening criteria.",
+            "Screen stocks based on predefined criteria using Yahoo Finance. Returns stocks matching your screening criteria. Example: Screen for 'day_gainers' to find stocks with highest gains today.",
         },
       },
     },
