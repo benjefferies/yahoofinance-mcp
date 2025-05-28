@@ -257,6 +257,475 @@ const handler = createMcpHandler(
         }
       }
     );
+
+    // Search Tool
+    server.tool(
+      "yahoo_search",
+      "Search for stocks, ETFs, mutual funds, and other securities on Yahoo Finance",
+      {
+        query: z
+          .string()
+          .describe("Search query (e.g., 'Apple', 'Tesla', 'S&P 500')"),
+        quotesCount: z
+          .number()
+          .default(10)
+          .describe("Number of quotes to return"),
+        newsCount: z
+          .number()
+          .default(0)
+          .describe("Number of news items to return"),
+      },
+      async ({ query, quotesCount, newsCount }) => {
+        try {
+          const searchResult = await yahooFinance.search(query, {
+            quotesCount,
+            newsCount,
+          });
+
+          let output = `Search results for "${query}":\n\n`;
+
+          if (searchResult.quotes && searchResult.quotes.length > 0) {
+            output += "Quotes:\n";
+            searchResult.quotes.forEach((quote: any, index) => {
+              const name =
+                quote.shortname || quote.longname || quote.name || quote.symbol;
+              const symbol = quote.symbol || quote.ticker;
+              output += `${index + 1}. ${name} (${symbol})\n`;
+              if (quote.exchDisp) output += `   Exchange: ${quote.exchDisp}\n`;
+              if (quote.typeDisp) output += `   Type: ${quote.typeDisp}\n`;
+              output += "\n";
+            });
+          }
+
+          if (searchResult.news && searchResult.news.length > 0) {
+            output += "News:\n";
+            searchResult.news.forEach((news: any, index) => {
+              output += `${index + 1}. ${news.title}\n`;
+              output += `   Source: ${news.publisher}\n`;
+              output += `   Date: ${new Date(
+                Number(news.providerPublishTime) * 1000
+              ).toLocaleString()}\n`;
+              output += `   Link: ${news.link}\n\n`;
+            });
+          }
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
+    // Options Tool
+    server.tool(
+      "yahoo_options",
+      "Get options data for a stock from Yahoo Finance",
+      {
+        symbol: z
+          .string()
+          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        expiration: z
+          .string()
+          .optional()
+          .describe(
+            "Options expiration date (YYYY-MM-DD). If not provided, returns all available expiration dates."
+          ),
+      },
+      async ({ symbol, expiration }) => {
+        try {
+          const options = await yahooFinance.options(symbol, {
+            date: expiration ? new Date(expiration) : undefined,
+          });
+
+          let output = `Options data for ${symbol}:\n\n`;
+
+          if (options.expirationDates) {
+            output += "Available expiration dates:\n";
+            options.expirationDates.forEach((date: number) => {
+              output += `- ${new Date(date * 1000).toLocaleDateString()}\n`;
+            });
+            output += "\n";
+          }
+
+          if (options.strikes) {
+            output += "Available strike prices:\n";
+            options.strikes.forEach((strike: number) => {
+              output += `- $${strike}\n`;
+            });
+            output += "\n";
+          }
+
+          if (options.options) {
+            output += "Options contracts:\n";
+            options.options.forEach((option: any) => {
+              const calls = option.calls;
+              const puts = option.puts;
+
+              output += `Expiration: ${option.expirationDate.toLocaleDateString()}\n`;
+
+              if (calls && calls.length > 0) {
+                output += "Calls:\n";
+                calls.forEach((call: any) => {
+                  output += `  Strike: $${call.strike}\n`;
+                  output += `  Last Price: $${call.lastPrice}\n`;
+                  output += `  Bid: $${call.bid}\n`;
+                  output += `  Ask: $${call.ask}\n`;
+                  output += `  Volume: ${call.volume}\n`;
+                  output += `  Open Interest: ${call.openInterest}\n\n`;
+                });
+              }
+
+              if (puts && puts.length > 0) {
+                output += "Puts:\n";
+                puts.forEach((put: any) => {
+                  output += `  Strike: $${put.strike}\n`;
+                  output += `  Last Price: $${put.lastPrice}\n`;
+                  output += `  Bid: $${put.bid}\n`;
+                  output += `  Ask: $${put.ask}\n`;
+                  output += `  Volume: ${put.volume}\n`;
+                  output += `  Open Interest: ${put.openInterest}\n\n`;
+                });
+              }
+            });
+          }
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
+    // Recommendations Tool
+    server.tool(
+      "yahoo_recommendations",
+      "Get stock recommendations and analysis from Yahoo Finance",
+      {
+        symbol: z
+          .string()
+          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+      },
+      async ({ symbol }) => {
+        try {
+          const quote = await yahooFinance.quote(symbol);
+          const recommendations = (quote as any).recommendationKey || "N/A";
+
+          let output = `Recommendations for ${symbol}:\n\n`;
+          output += `Current Recommendation: ${recommendations}\n`;
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
+    // Trending Tool
+    server.tool(
+      "yahoo_trending",
+      "Get trending stocks and market movers from Yahoo Finance",
+      {
+        count: z
+          .number()
+          .default(10)
+          .describe("Number of trending items to return"),
+      },
+      async ({ count }) => {
+        try {
+          const indices = await yahooFinance.quoteCombine([
+            "^GSPC", // S&P 500
+            "^DJI", // Dow Jones
+            "^IXIC", // NASDAQ
+            "^RUT", // Russell 2000
+          ]);
+
+          let output = "Market Indices:\n\n";
+          Object.entries(indices).forEach(([symbol, quote]: [string, any]) => {
+            const name = quote.shortname || quote.longname || symbol;
+            output += `${name} (${symbol}):\n`;
+            output += `  Price: $${quote.regularMarketPrice}\n`;
+            output += `  Change: ${quote.regularMarketChangePercent}%\n\n`;
+          });
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
+    // Autocomplete Tool
+    server.tool(
+      "yahoo_autoc",
+      "Get autocomplete suggestions from Yahoo Finance",
+      {
+        query: z.string().describe("Search query for autocomplete suggestions"),
+      },
+      async ({ query }) => {
+        try {
+          const searchResult = await yahooFinance.search(query, {
+            quotesCount: 10,
+            newsCount: 0,
+          });
+
+          let output = `Suggestions for "${query}":\n\n`;
+          if (searchResult.quotes && searchResult.quotes.length > 0) {
+            searchResult.quotes.forEach((quote: any, index) => {
+              const name =
+                quote.shortname || quote.longname || quote.name || quote.symbol;
+              const symbol = quote.symbol || quote.ticker;
+              output += `${index + 1}. ${name} (${symbol})\n`;
+              if (quote.exchDisp) output += `   Exchange: ${quote.exchDisp}\n`;
+              if (quote.typeDisp) output += `   Type: ${quote.typeDisp}\n`;
+              output += "\n";
+            });
+          }
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
+    // Insights Tool
+    server.tool(
+      "yahoo_insights",
+      "Get market insights and analysis from Yahoo Finance",
+      {
+        symbol: z
+          .string()
+          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+      },
+      async ({ symbol }) => {
+        try {
+          const quote = await yahooFinance.quote(symbol);
+          const summary = (quote as any).summaryDetail || {};
+          const stats = (quote as any).defaultKeyStatistics || {};
+
+          let output = `Market Insights for ${symbol}:\n\n`;
+
+          // Summary Details
+          output += "Summary Details:\n";
+          if (summary.marketCap)
+            output += `Market Cap: $${(summary.marketCap / 1e9).toFixed(2)}B\n`;
+          if (summary.volume)
+            output += `Volume: ${summary.volume.toLocaleString()}\n`;
+          if (summary.averageVolume)
+            output += `Avg Volume: ${summary.averageVolume.toLocaleString()}\n`;
+          if (summary.fiftyTwoWeekHigh)
+            output += `52-Week High: $${summary.fiftyTwoWeekHigh}\n`;
+          if (summary.fiftyTwoWeekLow)
+            output += `52-Week Low: $${summary.fiftyTwoWeekLow}\n`;
+          output += "\n";
+
+          // Key Statistics
+          output += "Key Statistics:\n";
+          if (stats.forwardPE) output += `Forward P/E: ${stats.forwardPE}\n`;
+          if (stats.trailingPE) output += `Trailing P/E: ${stats.trailingPE}\n`;
+          if (stats.priceToBook) output += `Price/Book: ${stats.priceToBook}\n`;
+          if (stats.enterpriseToRevenue)
+            output += `Enterprise/Revenue: ${stats.enterpriseToRevenue}\n`;
+          if (stats.enterpriseToEbitda)
+            output += `Enterprise/EBITDA: ${stats.enterpriseToEbitda}\n`;
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
+    // Chart Tool
+    server.tool(
+      "yahoo_chart",
+      "Get chart data for a stock from Yahoo Finance",
+      {
+        symbol: z
+          .string()
+          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        period: z
+          .string()
+          .default("1mo")
+          .describe(
+            "Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"
+          ),
+        interval: z
+          .string()
+          .default("1d")
+          .describe(
+            "Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)"
+          ),
+      },
+      async ({ symbol, period, interval }) => {
+        try {
+          const endDate = new Date();
+          const startDate = getPeriod1Date(period);
+
+          const chart = await yahooFinance.chart(symbol, {
+            period1: startDate,
+            period2: endDate,
+            interval,
+          });
+
+          let output = `Chart data for ${symbol} (${period}, ${interval}):\n\n`;
+
+          if (chart.quotes && chart.quotes.length > 0) {
+            output += "Price History:\n";
+            chart.quotes.forEach((quote: any) => {
+              const date = new Date(quote.timestamp * 1000).toLocaleString();
+              output += `Date: ${date}\n`;
+              output += `Open: $${quote.open}\n`;
+              output += `High: $${quote.high}\n`;
+              output += `Low: $${quote.low}\n`;
+              output += `Close: $${quote.close}\n`;
+              output += `Volume: ${quote.volume}\n\n`;
+            });
+          }
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
+    // Screener Tool
+    server.tool(
+      "yahoo_screener",
+      "Screen stocks based on various criteria using Yahoo Finance",
+      {
+        criteria: z
+          .string()
+          .describe(
+            "Screening criteria (e.g., 'market_cap>1000000000,pe_ratio<20')"
+          ),
+        count: z
+          .number()
+          .default(50)
+          .describe("Maximum number of results to return"),
+      },
+      async ({ criteria, count }) => {
+        try {
+          const screen = await yahooFinance.screener({
+            scrIds: criteria,
+            count,
+          });
+
+          let output = `Screener results for criteria: ${criteria}\n\n`;
+
+          if (screen.quotes && screen.quotes.length > 0) {
+            screen.quotes.forEach((quote: any, index) => {
+              const name =
+                quote.shortname || quote.longname || quote.name || quote.symbol;
+              const symbol = quote.symbol || quote.ticker;
+              output += `${index + 1}. ${name} (${symbol})\n`;
+              if (quote.regularMarketPrice)
+                output += `   Price: $${quote.regularMarketPrice}\n`;
+              if (quote.regularMarketChangePercent)
+                output += `   Change: ${quote.regularMarketChangePercent}%\n`;
+              if (quote.marketCap)
+                output += `   Market Cap: $${(quote.marketCap / 1e9).toFixed(
+                  2
+                )}B\n`;
+              output += "\n";
+            });
+          }
+
+          return {
+            content: [{ type: "text", text: output }],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
   },
   {
     capabilities: {
@@ -272,6 +741,38 @@ const handler = createMcpHandler(
         yahoo_stock_history: {
           description:
             "Get historical stock data from Yahoo Finance. Returns price and volume data for a specified time period.",
+        },
+        yahoo_search: {
+          description:
+            "Search for stocks, ETFs, mutual funds, and other securities on Yahoo Finance. Returns matching quotes and news articles.",
+        },
+        yahoo_options: {
+          description:
+            "Get options data for a stock from Yahoo Finance. Returns available expiration dates, strike prices, and options contracts.",
+        },
+        yahoo_recommendations: {
+          description:
+            "Get stock recommendations and analysis from Yahoo Finance. Returns analyst recommendations and price targets.",
+        },
+        yahoo_trending: {
+          description:
+            "Get trending stocks and market movers from Yahoo Finance. Returns most active and trending securities.",
+        },
+        yahoo_autoc: {
+          description:
+            "Get autocomplete suggestions from Yahoo Finance. Returns matching symbols and securities as you type.",
+        },
+        yahoo_insights: {
+          description:
+            "Get market insights and analysis from Yahoo Finance. Returns market news, analysis, and insights for a stock.",
+        },
+        yahoo_chart: {
+          description:
+            "Get chart data for a stock from Yahoo Finance. Returns historical price and volume data in a chart format.",
+        },
+        yahoo_screener: {
+          description:
+            "Screen stocks based on various criteria using Yahoo Finance. Returns stocks matching your screening criteria.",
         },
       },
     },
