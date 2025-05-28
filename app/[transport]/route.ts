@@ -161,12 +161,9 @@ const handler = createMcpHandler(
           }
 
           const getPeriod1Date = (period: string): Date => {
-            if (period === "ytd") {
+            if (period === "ytd")
               return new Date(new Date().getFullYear(), 0, 1);
-            }
-            if (period === "max") {
-              return new Date(0);
-            }
+            if (period === "max") return new Date(0);
             const periods: Record<string, number> = {
               "1d": 86400000,
               "5d": 5 * 86400000,
@@ -352,8 +349,8 @@ const handler = createMcpHandler(
 
           if (options.expirationDates) {
             output += "Available expiration dates:\n";
-            options.expirationDates.forEach((date: number) => {
-              output += `- ${new Date(date * 1000).toLocaleDateString()}\n`;
+            options.expirationDates.forEach((date: Date) => {
+              output += `- ${date.toLocaleDateString()}\n`;
             });
             output += "\n";
           }
@@ -465,17 +462,17 @@ const handler = createMcpHandler(
       },
       async ({ count }) => {
         try {
-          const indices = await yahooFinance.quoteCombine([
-            "^GSPC", // S&P 500
-            "^DJI", // Dow Jones
-            "^IXIC", // NASDAQ
-            "^RUT", // Russell 2000
+          const indices = await Promise.all([
+            yahooFinance.quote("^GSPC"), // S&P 500
+            yahooFinance.quote("^DJI"), // Dow Jones
+            yahooFinance.quote("^IXIC"), // NASDAQ
+            yahooFinance.quote("^RUT"), // Russell 2000
           ]);
 
           let output = "Market Indices:\n\n";
-          Object.entries(indices).forEach(([symbol, quote]: [string, any]) => {
-            const name = quote.shortname || quote.longname || symbol;
-            output += `${name} (${symbol}):\n`;
+          indices.forEach((quote: any) => {
+            const name = quote.shortname || quote.longname || quote.symbol;
+            output += `${name} (${quote.symbol}):\n`;
             output += `  Price: $${quote.regularMarketPrice}\n`;
             output += `  Change: ${quote.regularMarketChangePercent}%\n\n`;
           });
@@ -625,13 +622,44 @@ const handler = createMcpHandler(
       },
       async ({ symbol, period, interval }) => {
         try {
+          const getPeriod1Date = (period: string): Date => {
+            if (period === "ytd")
+              return new Date(new Date().getFullYear(), 0, 1);
+            if (period === "max") return new Date(0);
+            const periods: Record<string, number> = {
+              "1d": 86400000,
+              "5d": 5 * 86400000,
+              "1mo": 30 * 86400000,
+              "3mo": 90 * 86400000,
+              "6mo": 180 * 86400000,
+              "1y": 365 * 86400000,
+              "2y": 2 * 365 * 86400000,
+              "5y": 5 * 365 * 86400000,
+              "10y": 10 * 365 * 86400000,
+            };
+            return new Date(Date.now() - (periods[period] || 30 * 86400000));
+          };
+
           const endDate = new Date();
           const startDate = getPeriod1Date(period);
 
           const chart = await yahooFinance.chart(symbol, {
             period1: startDate,
             period2: endDate,
-            interval,
+            interval: interval as
+              | "1mo"
+              | "1d"
+              | "5d"
+              | "3mo"
+              | "1m"
+              | "2m"
+              | "5m"
+              | "15m"
+              | "30m"
+              | "60m"
+              | "90m"
+              | "1h"
+              | "1wk",
           });
 
           let output = `Chart data for ${symbol} (${period}, ${interval}):\n\n`;
@@ -685,7 +713,12 @@ const handler = createMcpHandler(
       async ({ criteria, count }) => {
         try {
           const screen = await yahooFinance.screener({
-            scrIds: criteria,
+            scrIds: criteria as
+              | "day_gainers"
+              | "day_losers"
+              | "most_actives"
+              | "most_shorted_stocks"
+              | "undervalued_large_caps",
             count,
           });
 
