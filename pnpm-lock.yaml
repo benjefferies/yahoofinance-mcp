@@ -14,6 +14,9 @@ dependencies:
   next:
     specifier: 15.2.8
     version: 15.2.8(react-dom@19.1.0)(react@19.1.0)
+  redis:
+    specifier: ^4.7.0
+    version: 4.7.1
   yahoo-finance2:
     specifier: ^2.13.3
     version: 2.13.3
