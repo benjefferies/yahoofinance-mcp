@@ -1,17 +1,19 @@
-import { createMcpHandler } from "@vercel/mcp-adapter";
+import { createMcpHandler } from "mcp-handler";
 import yahooFinance from "yahoo-finance2";
 import { z } from "zod";
 
 const handler = createMcpHandler(
   (server) => {
     // Stock Quote Tool
-    server.tool(
+    server.registerTool(
       "yahoo_stock_quote",
-      "Get current stock quote information from Yahoo Finance",
       {
-        symbol: z
-          .string()
-          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        description: "Get current stock quote information from Yahoo Finance",
+        inputSchema: {
+          symbol: z
+            .string()
+            .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        },
       },
       async ({ symbol }) => {
         try {
@@ -53,16 +55,18 @@ const handler = createMcpHandler(
     );
 
     // Market Data Tool
-    server.tool(
+    server.registerTool(
       "yahoo_market_data",
-      "Get current market data from Yahoo Finance",
       {
-        indices: z
-          .array(z.string())
-          .default(["^GSPC", "^DJI", "^IXIC"])
-          .describe(
-            "List of index symbols to fetch (e.g., ^GSPC for S&P 500, ^DJI for Dow Jones)"
-          ),
+        description: "Get current market data from Yahoo Finance",
+        inputSchema: {
+          indices: z
+            .array(z.string())
+            .default(["^GSPC", "^DJI", "^IXIC"])
+            .describe(
+              "List of index symbols to fetch (e.g., ^GSPC for S&P 500, ^DJI for Dow Jones)"
+            ),
+        },
       },
       async ({ indices }) => {
         try {
@@ -94,25 +98,27 @@ const handler = createMcpHandler(
     );
 
     // Stock History Tool
-    server.tool(
+    server.registerTool(
       "yahoo_stock_history",
-      "Get historical stock data from Yahoo Finance",
       {
-        symbol: z
-          .string()
-          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
-        period: z
-          .string()
-          .default("1mo")
-          .describe(
-            "Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"
-          ),
-        interval: z
-          .string()
-          .default("1d")
-          .describe(
-            "Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)"
-          ),
+        description: "Get historical stock data from Yahoo Finance",
+        inputSchema: {
+          symbol: z
+            .string()
+            .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+          period: z
+            .string()
+            .default("1mo")
+            .describe(
+              "Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"
+            ),
+          interval: z
+            .string()
+            .default("1d")
+            .describe(
+              "Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)"
+            ),
+        },
       },
       async ({ symbol, period, interval }) => {
         try {
@@ -256,21 +262,24 @@ const handler = createMcpHandler(
     );
 
     // Search Tool
-    server.tool(
+    server.registerTool(
       "yahoo_search",
-      "Search for stocks, ETFs, mutual funds, and other securities on Yahoo Finance",
       {
-        query: z
-          .string()
-          .describe("Search query (e.g., 'Apple', 'Tesla', 'S&P 500')"),
-        quotesCount: z
-          .number()
-          .default(10)
-          .describe("Number of quotes to return"),
-        newsCount: z
-          .number()
-          .default(0)
-          .describe("Number of news items to return"),
+        description:
+          "Search for stocks, ETFs, mutual funds, and other securities on Yahoo Finance",
+        inputSchema: {
+          query: z
+            .string()
+            .describe("Search query (e.g., 'Apple', 'Tesla', 'S&P 500')"),
+          quotesCount: z
+            .number()
+            .default(10)
+            .describe("Number of quotes to return"),
+          newsCount: z
+            .number()
+            .default(0)
+            .describe("Number of news items to return"),
+        },
       },
       async ({ query, quotesCount, newsCount }) => {
         try {
@@ -325,19 +334,21 @@ const handler = createMcpHandler(
     );
 
     // Options Tool
-    server.tool(
+    server.registerTool(
       "yahoo_options",
-      "Get options data for a stock from Yahoo Finance",
       {
-        symbol: z
-          .string()
-          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
-        expiration: z
-          .string()
-          .optional()
-          .describe(
-            "Options expiration date (YYYY-MM-DD). If not provided, returns all available expiration dates."
-          ),
+        description: "Get options data for a stock from Yahoo Finance",
+        inputSchema: {
+          symbol: z
+            .string()
+            .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+          expiration: z
+            .string()
+            .optional()
+            .describe(
+              "Options expiration date (YYYY-MM-DD). If not provided, returns all available expiration dates."
+            ),
+        },
       },
       async ({ symbol, expiration }) => {
         try {
@@ -416,13 +427,16 @@ const handler = createMcpHandler(
     );
 
     // Recommendations Tool
-    server.tool(
+    server.registerTool(
       "yahoo_recommendations",
-      "Get stock recommendations and analysis from Yahoo Finance",
       {
-        symbol: z
-          .string()
-          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        description:
+          "Get stock recommendations and analysis from Yahoo Finance",
+        inputSchema: {
+          symbol: z
+            .string()
+            .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        },
       },
       async ({ symbol }) => {
         try {
@@ -464,52 +478,54 @@ const handler = createMcpHandler(
     );
 
     // Trending Tool
-    server.tool(
+    server.registerTool(
       "yahoo_trending",
-      "Get trending stocks and market movers from Yahoo Finance",
       {
-        count: z
-          .number()
-          .default(10)
-          .describe("Number of trending items to return"),
-        region: z
-          .enum([
-            "US",
-            "GB",
-            "AU",
-            "CA",
-            "IN",
-            "FR",
-            "DE",
-            "HK",
-            "IT",
-            "ES",
-            "BR",
-            "MX",
-            "SG",
-            "JP",
-          ])
-          .default("US")
-          .describe("Region to get trending symbols for"),
-        lang: z
-          .enum([
-            "en-US",
-            "en-GB",
-            "en-AU",
-            "en-CA",
-            "en-IN",
-            "fr-FR",
-            "de-DE",
-            "zh-HK",
-            "it-IT",
-            "es-ES",
-            "pt-BR",
-            "es-MX",
-            "en-SG",
-            "ja-JP",
-          ])
-          .default("en-US")
-          .describe("Language for the response"),
+        description: "Get trending stocks and market movers from Yahoo Finance",
+        inputSchema: {
+          count: z
+            .number()
+            .default(10)
+            .describe("Number of trending items to return"),
+          region: z
+            .enum([
+              "US",
+              "GB",
+              "AU",
+              "CA",
+              "IN",
+              "FR",
+              "DE",
+              "HK",
+              "IT",
+              "ES",
+              "BR",
+              "MX",
+              "SG",
+              "JP",
+            ])
+            .default("US")
+            .describe("Region to get trending symbols for"),
+          lang: z
+            .enum([
+              "en-US",
+              "en-GB",
+              "en-AU",
+              "en-CA",
+              "en-IN",
+              "fr-FR",
+              "de-DE",
+              "zh-HK",
+              "it-IT",
+              "es-ES",
+              "pt-BR",
+              "es-MX",
+              "en-SG",
+              "ja-JP",
+            ])
+            .default("en-US")
+            .describe("Language for the response"),
+        },
       },
       async ({ count, region, lang }) => {
         try {
@@ -558,11 +574,15 @@ const handler = createMcpHandler(
     );
 
     // Autocomplete Tool
-    server.tool(
+    server.registerTool(
       "yahoo_autoc",
-      "Get autocomplete suggestions from Yahoo Finance",
       {
-        query: z.string().describe("Search query for autocomplete suggestions"),
+        description: "Get autocomplete suggestions from Yahoo Finance",
+        inputSchema: {
+          query: z
+            .string()
+            .describe("Search query for autocomplete suggestions"),
+        },
       },
       async ({ query }) => {
         try {
@@ -603,13 +623,15 @@ const handler = createMcpHandler(
     );
 
     // Insights Tool
-    server.tool(
+    server.registerTool(
       "yahoo_insights",
-      "Get market insights and analysis from Yahoo Finance",
       {
-        symbol: z
-          .string()
-          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        description: "Get market insights and analysis from Yahoo Finance",
+        inputSchema: {
+          symbol: z
+            .string()
+            .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+        },
       },
       async ({ symbol }) => {
         try {
@@ -662,25 +684,27 @@ const handler = createMcpHandler(
     );
 
     // Chart Tool
-    server.tool(
+    server.registerTool(
       "yahoo_chart",
-      "Get chart data for a stock from Yahoo Finance",
       {
-        symbol: z
-          .string()
-          .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
-        period: z
-          .string()
-          .default("1mo")
-          .describe(
-            "Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"
-          ),
-        interval: z
-          .string()
-          .default("1d")
-          .describe(
-            "Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)"
-          ),
+        description: "Get chart data for a stock from Yahoo Finance",
+        inputSchema: {
+          symbol: z
+            .string()
+            .describe("Stock ticker symbol (e.g., AAPL, MSFT, TSLA)"),
+          period: z
+            .string()
+            .default("1mo")
+            .describe(
+              "Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"
+            ),
+          interval: z
+            .string()
+            .default("1d")
+            .describe(
+              "Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)"
+            ),
+        },
       },
       async ({ symbol, period, interval }) => {
         try {
@@ -758,32 +782,37 @@ const handler = createMcpHandler(
     );
 
     // Screener Tool
-    server.tool(
+    server.registerTool(
       "yahoo_screener",
-      "Screen stocks based on predefined criteria using Yahoo Finance",
       {
-        criteria: z
-          .enum([
-            "day_gainers",
-            "day_losers",
-            "most_actives",
-            "most_shorted_stocks",
-            "undervalued_large_caps",
-            "aggressive_small_caps",
-            "conservative_foreign_funds",
-            "growth_technology_stocks",
-            "high_yield_bond",
-            "portfolio_anchors",
-            "solid_large_growth_funds",
-            "solid_midcap_growth_funds",
-            "top_mutual_funds",
-            "undervalued_growth_stocks",
-          ])
-          .describe("Screening criteria (e.g., 'day_gainers', 'most_actives')"),
-        count: z
-          .number()
-          .default(50)
-          .describe("Maximum number of results to return"),
+        description:
+          "Screen stocks based on predefined criteria using Yahoo Finance",
+        inputSchema: {
+          criteria: z
+            .enum([
+              "day_gainers",
+              "day_losers",
+              "most_actives",
+              "most_shorted_stocks",
+              "undervalued_large_caps",
+              "aggressive_small_caps",
+              "conservative_foreign_funds",
+              "growth_technology_stocks",
+              "high_yield_bond",
+              "portfolio_anchors",
+              "solid_large_growth_funds",
+              "solid_midcap_growth_funds",
+              "top_mutual_funds",
+              "undervalued_growth_stocks",
+            ])
+            .describe(
+              "Screening criteria (e.g., 'day_gainers', 'most_actives')"
+            ),
+          count: z
+            .number()
+            .default(50)
+            .describe("Maximum number of results to return"),
+        },
       },
       async ({ criteria, count }) => {
         try {
@@ -830,58 +859,8 @@ const handler = createMcpHandler(
       }
     );
   },
+  {},
   {
-    capabilities: {
-      tools: {
-        yahoo_stock_quote: {
-          description:
-            "Get current stock quote information from Yahoo Finance. Returns detailed information about a stock including current price, day range, 52-week range, market cap, volume, P/E ratio, etc. Example: Get quote for AAPL to see current price, market cap, and other key metrics.",
-        },
-        yahoo_market_data: {
-          description:
-            "Get current market data from Yahoo Finance. Returns information about major market indices (like S&P 500, NASDAQ, Dow Jones). Example: Get market data for ^GSPC,^DJI to see S&P 500 and Dow Jones performance.",
-        },
-        yahoo_stock_history: {
-          description:
-            "Get historical stock data from Yahoo Finance. Returns price and volume data for a specified time period. Example: Get 1 month of daily data for AAPL with period='1mo' and interval='1d'.",
-        },
-        yahoo_search: {
-          description:
-            "Search for stocks, ETFs, mutual funds, and other securities on Yahoo Finance. Returns matching quotes and news articles. Example: Search for 'Apple' with quotesCount=5 to get top 5 matching securities.",
-        },
-        yahoo_options: {
-          description:
-            "Get options data for a stock from Yahoo Finance. Returns available expiration dates, strike prices, and options contracts. Example: Get options for AAPL with optional expiration='2024-04-19' for specific date.",
-        },
-        yahoo_recommendations: {
-          description:
-            "Get stock recommendations and analysis from Yahoo Finance. Returns recommended similar stocks with their scores. Example: Get recommendations for AAPL to find similar stocks to invest in.",
-        },
-        yahoo_trending: {
-          description:
-            "Get trending stocks and market movers from Yahoo Finance. Returns trending stocks with price, change, volume, and market cap. Example: Get trending stocks for US market with count=10, region='US', lang='en-US'.",
-        },
-        yahoo_autoc: {
-          description:
-            "Get autocomplete suggestions from Yahoo Finance. Returns matching symbols and securities as you type. Example: Get suggestions for 'Appl' to find Apple-related securities.",
-        },
-        yahoo_insights: {
-          description:
-            "Get market insights and analysis from Yahoo Finance. Returns market news, analysis, and insights for a stock. Example: Get insights for AAPL to see market analysis and key statistics.",
-        },
-        yahoo_chart: {
-          description:
-            "Get chart data for a stock from Yahoo Finance. Returns historical price and volume data in a chart format. Example: Get 1 month of daily chart data for AAPL with period='1mo' and interval='1d'.",
-        },
-        yahoo_screener: {
-          description:
-            "Screen stocks based on predefined criteria using Yahoo Finance. Returns stocks matching your screening criteria. Example: Screen for 'day_gainers' to find stocks with highest gains today.",
-        },
-      },
-    },
-  },
-  {
-    redisUrl: process.env.REDIS_URL,
     basePath: "",
     verboseLogs: true,
     maxDuration: 60,
